@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="auth-form-container">
+        <form method="POST" action="">
+            <h2>Register</h2>
+            <div>
+                <label for="username">Username</label>
+                <input type="text" name="username" id="username" pattern="\S+" title="No spaces allowed" required>
+            </div>
+            <div>
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <div>
+                <button type="submit">Register</button>
+            </div>
+        </form>
+        <div class="auth-switch">
+            <p>Already have an account? <a href="{{ url_for('login') }}">Log In</a></p>
+        </div>
+    </div>
+{% endblock content %}

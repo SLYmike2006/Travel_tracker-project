@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="app-container">
+        <div id="stats-dashboard">
+            <h2>My Travel Stats</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <h3>Total Trips</h3>
+                    <p id="total-trips">0</p>
+                </div>
+                <div class="stat-item">
+                    <h3>Countries Visited</h3>
+                    <p id="unique-countries">0</p>
+                </div>
+                <div class="stat-item">
+                    <h3>Continents Explored</h3>
+                    <p id="unique-continents">0</p>
+                </div>
+            </div>
+        </div>
+        <div id="map-container">
+            <div id="mapid"></div>
+            <button id="zoom-out-btn" title="Zoom out to world view">
+                <i class="fas fa-expand-arrows-alt"></i>
+            </button>
+        </div>
+        <div class="sidebar">
+            <div class="view-logs-container">
+                <a href="{{ url_for('logs') }}" class="btn-secondary">View All Travel Logs</a>
+            </div>
+            <div class="form-container">
+                <form id="add-place-form">
+                    <h2>Log a New Travel</h2>
+
+                <div class="search-container">
+                    <label for="location-search">Find a location:</label>
+                    <input type="text" id="location-search" placeholder="e.g., Eiffel Tower, Paris">
+                    <button type="button" id="search-button">Search</button>
+                </div>
+
+                <p>You can also drag the marker on the map to set your location.</p>
+
+                <div>
+                    <label for="name">Place Name:</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                <div>
+                    <label for="date">Date of Travel:</label>
+                    <input type="date" id="date" name="date">
+                </div>
+                <div>
+                    <label for="notes">Notes:</label>
+                    <textarea id="notes" name="notes" rows="3" placeholder="What did you do there?"></textarea>
+                </div>
+
+                <div class="coords-container">
+                    <div>
+                        <label for="lat">Latitude:</label>
+                        <input type="number" id="lat" name="lat" step="any" required readonly>
+                    </div>
+                    <div>
+                        <label for="lng">Longitude:</label>
+                        <input type="number" id="lng" name="lng" step="any" required readonly>
+                    </div>
+                </div>
+
+                <button type="submit">Add to My Travel Log</button>
+                <button type="button" id="cancel-edit" style="display: none;">Cancel Edit</button>
+            </form>
+        </div>
+    </div>
+{% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+{% endblock scripts %}

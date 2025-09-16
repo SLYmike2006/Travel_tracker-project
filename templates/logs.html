@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="container">
+        <div class="page-header">
+            <h2 class="page-title">My Travel Logs</h2>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Map</a>
+        </div>
+        <div class="logs-container">
+            {% for place in places %}
+                <div class="log-card">
+                    <div class="log-card-content">
+                        <h3>{{ place.name }}</h3>
+                        <p class="log-date">{{ place.date }}</p>
+                        <p class="log-notes">{{ place.notes }}</p>
+                    </div>
+                    <div class="log-actions">
+                        <a href="{{ url_for('index', edit=place.id) }}" class="btn-secondary btn-sm">Edit</a>
+                        <button class="delete-place-btn btn-danger btn-sm" data-id="{{ place.id }}">Delete</button>
+                    </div>
+                </div>
+            {% else %}
+                <p>You haven't logged any travels yet. Go back to the map to add one!</p>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock content %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/logs.js') }}"></script>
+{% endblock scripts %}
