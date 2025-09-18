@@ -8,7 +8,8 @@ Travel Tracker is a simple yet powerful web application to log and visualize you
 - 📍 Interactive world map (Leaflet) to see all your places  
 - ➕ Add new places with name, date, notes, latitude & longitude  
 - 🗑 Delete saved places  
-- 👤 User authentication (register & login)  
+- 👤 User authentication (register & login)
+- Recommendation Engine to suggest new destinations
 - 🎨 Light/Dark theme toggle
 
 ---
