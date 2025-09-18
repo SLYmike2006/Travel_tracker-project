@@ -16,6 +16,7 @@
         <div class="auth-links">
             {% if current_user.is_authenticated %}
                 <span class="username">Hi, {{ current_user.username }}</span>
+                <a href="{{ url_for('recommendations_page') }}">Recommendations</a>
                 <a href="{{ url_for('logout') }}">Logout</a>
             {% else %}
                 <a href="{{ url_for('login') }}">Login</a>

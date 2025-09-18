@@ -17,3 +17,5 @@ instance/
 .venv
 venv/
 env/
+ities500.txt
+cities500.zip

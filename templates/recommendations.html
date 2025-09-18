@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="app-container">
+        <div id="recommendations-dashboard">
+            <h2>Travel Recommendations For You</h2>
+            <p>Based on your travel history, here are some places you might like to visit next!</p>
+        </div>
+        <div id="map-container">
+            <div id="mapid"></div>
+            <button id="zoom-out-btn" title="Zoom out to world view">
+                <i class="fas fa-expand-arrows-alt"></i>
+            </button>
+        </div>
+        <div class="sidebar">
+            <div class="recommendations-list-container">
+                <h2>Recommended Destinations</h2>
+                <ul id="recommendations-list">
+                    <!-- Recommendations will be loaded here by JavaScript -->
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/recommendations_map.js') }}"></script>
+{% endblock scripts %}

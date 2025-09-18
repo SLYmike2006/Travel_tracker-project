@@ -5,6 +5,7 @@ from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import reverse_geocoder as rg
 from pycountry_convert import country_alpha2_to_continent_code
+import recommendations
 
 # --- App & DB Configuration ---
 app = Flask(__name__)
@@ -50,6 +51,11 @@ def index():
 def logs():
     places = Place.query.filter_by(user_id=current_user.id).order_by(Place.date.desc()).all()
     return render_template('logs.html', title='My Travel Logs', places=places)
+
+@app.route('/recommendations')
+@login_required
+def recommendations_page():
+    return render_template('recommendations.html')
 
 # --- API Routes ---
 @app.route('/api/places', methods=['GET'])
@@ -172,6 +178,45 @@ def get_stats():
         'countries_visited': sorted(list(countries)),
         'continents_visited': sorted(list(continents))
     })
+
+@app.route('/api/recommendations', methods=['GET'])
+@login_required
+def get_recommendations():
+    user_places = Place.query.filter_by(user_id=current_user.id).all()
+    all_places = Place.query.all()
+
+    # Get recommendations from both models
+    content_recs = recommendations.get_content_based_recommendations(user_places, top_n=10)
+    collab_recs = recommendations.get_collaborative_filtering_recommendations(current_user.id, all_places, top_n=10)
+
+    # --- Hybrid Approach: Combine and de-duplicate ---
+    final_recs = []
+    seen_cities = set()
+
+    # Add collaborative filtering recs first if available
+    for rec in collab_recs:
+        if rec['name'].lower() not in seen_cities:
+            final_recs.append(rec)
+            seen_cities.add(rec['name'].lower())
+    
+    # Then, add content-based recs
+    for rec in content_recs:
+        if len(final_recs) >= 10:
+            break
+        if rec['name'].lower() not in seen_cities:
+            final_recs.append(rec)
+            seen_cities.add(rec['name'].lower())
+
+    # If still not enough recommendations, fill with popular places
+    if len(final_recs) < 10:
+        popular_recs = recommendations.CITIES_DATA.nlargest(20, 'population').to_dict('records')
+        for rec in popular_recs:
+            if len(final_recs) >= 10:
+                break
+            if rec['name'].lower() not in seen_cities:
+                final_recs.append(rec)
+                seen_cities.add(rec['name'].lower())
+    return jsonify(final_recs)
 
 # --- Authentication Routes ---
 @app.route("/register", methods=['GET', 'POST'])

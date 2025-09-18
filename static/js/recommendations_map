@@ -1,0 +1,231 @@
+import pandas as pd
+import requests
+import zipfile
+import io
+import numpy as np
+from scipy.sparse import csr_matrix
+from sklearn.decomposition import TruncatedSVD
+
+def load_cities_data():
+    """
+    Downloads, unzips, and loads the GeoNames cities500 dataset into a pandas DataFrame.
+    This is done in memory to avoid issues with large file storage in the environment.
+    """
+    url = "https://download.geonames.org/export/dump/cities500.zip"
+    
+    # Define column names for the dataset, as it has no header
+    col_names = [
+        'geonameid', 'name', 'asciiname', 'alternatenames', 'latitude', 'longitude',
+        'feature_class', 'feature_code', 'country_code', 'cc2', 'admin1_code',
+        'admin2_code', 'admin3_code', 'admin4_code', 'population', 'elevation',
+        'dem', 'timezone', 'modification_date'
+    ]
+    
+    try:
+        # Download the file in memory
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for bad status codes
+        
+        # Open the zip archive from the in-memory content
+        with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+            # Find the txt file in the zip archive (should be 'cities500.txt')
+            file_name = z.namelist()[0]
+            
+            # Read the file content into a pandas DataFrame
+            with z.open(file_name) as f:
+                cities_df = pd.read_csv(
+                    f,
+                    sep='\t',
+                    header=None,
+                    names=col_names,
+                    encoding='utf-8'
+                )
+        
+        # Select only the columns we need
+        required_cols = ['name', 'latitude', 'longitude', 'country_code', 'population']
+        cities_df = cities_df[required_cols]
+        
+        # Drop rows with missing essential data
+        cities_df.dropna(inplace=True)
+        
+        return cities_df
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error downloading data: {e}")
+        return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+# Load the data when this module is imported
+CITIES_DATA = load_cities_data()
+CITY_EMBEDDINGS = None
+MODEL = None
+
+def _precompute_city_embeddings():
+    """
+    Generates and stores embeddings for all cities in the dataset.
+    This is a one-time operation that runs when the module is loaded.
+    """
+    global CITIES_DATA, CITY_EMBEDDINGS, MODEL
+    if CITIES_DATA is not None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            MODEL = SentenceTransformer('all-MiniLM-L6-v2')
+            
+            # Create a description string for each city to be embedded
+            descriptions = (CITIES_DATA['name'] + ", " + CITIES_DATA['country_code']).tolist()
+            
+            print("Generating city embeddings... This may take a moment.")
+            CITY_EMBEDDINGS = MODEL.encode(descriptions, convert_to_tensor=True, show_progress_bar=True)
+            print("City embeddings generated successfully.")
+            
+        except ImportError:
+            print("SentenceTransformers library not found. Content-based recommendations will be disabled.")
+        except Exception as e:
+            print(f"An error occurred during embedding generation: {e}")
+
+def get_content_based_recommendations(user_places, top_n=10):
+    """
+    Generates travel recommendations based on the content of a user's travel notes.
+    
+    Args:
+        user_places (list): A list of Place objects for the user.
+        top_n (int): The number of recommendations to return.
+        
+    Returns:
+        list: A list of recommended cities (dictionaries).
+    """
+    if MODEL is None or CITY_EMBEDDINGS is None or CITIES_DATA is None:
+        return []
+
+    notes = " ".join([place.notes for place in user_places if place.notes])
+    if not notes.strip():
+        # No notes, maybe recommend most populous cities?
+        return CITIES_DATA.nlargest(top_n, 'population').to_dict('records')
+
+    try:
+        from sklearn.metrics.pairwise import cosine_similarity
+        
+        # Generate embedding for the user's notes
+        user_embedding = MODEL.encode(notes, convert_to_tensor=True)
+        
+        # Calculate cosine similarity
+        similarities = cosine_similarity(user_embedding.reshape(1, -1), CITY_EMBEDDINGS)[0]
+        
+        # Get top N similar cities
+        top_indices = similarities.argsort()[- (top_n + len(user_places)) * 2 :][::-1] # Get more to filter from
+        
+        # Filter out already visited cities and create recommendation list
+        visited_cities = {place.name.lower() for place in user_places}
+        recommendations = []
+        
+        for idx in top_indices:
+            city = CITIES_DATA.iloc[idx]
+            if city['name'].lower() not in visited_cities:
+                recommendations.append(city.to_dict())
+                if len(recommendations) >= top_n:
+                    break
+                    
+        return recommendations
+        
+    except Exception as e:
+        print(f"An error occurred during content-based recommendation: {e}")
+        return []
+
+# --- Collaborative Filtering ---
+
+def get_collaborative_filtering_recommendations(user_id, all_places, top_n=10):
+    """
+    Generates recommendations using a collaborative filtering (matrix factorization) approach.
+
+    Args:
+        user_id (int): The ID of the user to generate recommendations for.
+        all_places (list): A list of all Place objects from the database.
+        top_n (int): The number of recommendations to return.
+
+    Returns:
+        list: A list of recommended cities (dictionaries).
+    """
+    if not all_places:
+        return []
+
+    # Create a DataFrame from the places data
+    places_df = pd.DataFrame([(p.user_id, p.name) for p in all_places], columns=['user_id', 'place_name'])
+    
+    # --- Cold Start Problem Handling ---
+    # Need at least a few users and places to make meaningful recommendations
+    if places_df['user_id'].nunique() < 3 or places_df['place_name'].nunique() < 5:
+        print("Not enough data for collaborative filtering.")
+        return []
+
+    # Create user and item mappings to integer indices
+    user_mapper = {user: i for i, user in enumerate(places_df.user_id.unique())}
+    item_mapper = {item: i for i, item in enumerate(places_df.place_name.unique())}
+    
+    user_inv_mapper = {i: user for user, i in user_mapper.items()}
+    item_inv_mapper = {i: item for item, i in item_mapper.items()}
+
+    # Map users and items in the DataFrame
+    places_df['user_idx'] = places_df['user_id'].map(user_mapper)
+    places_df['item_idx'] = places_df['place_name'].map(item_mapper)
+
+    # Create a sparse user-item matrix
+    user_item_matrix = csr_matrix(
+        (np.ones(len(places_df)), (places_df['user_idx'], places_df['item_idx'])),
+        shape=(len(user_mapper), len(item_mapper))
+    )
+
+    # --- Matrix Factorization using TruncatedSVD ---
+    # n_components is the number of latent factors
+    n_components = min(10, len(user_mapper) - 1, len(item_mapper) - 1)
+    if n_components < 2:
+        print("Not enough components for SVD.")
+        return []
+        
+    svd = TruncatedSVD(n_components=n_components, random_state=42)
+    user_factors = svd.fit_transform(user_item_matrix)
+    item_factors = svd.components_.T
+
+    # --- Generate Recommendations ---
+    if user_id not in user_mapper:
+        print(f"User {user_id} not in the dataset. Cannot provide collaborative filtering recommendations.")
+        return []
+
+    target_user_idx = user_mapper[user_id]
+    
+    # Predict scores for all items for the target user
+    predicted_scores = user_factors[target_user_idx].dot(item_factors.T)
+
+    # Get the user's visited places to filter them out
+    visited_item_indices = places_df[places_df['user_id'] == user_id]['item_idx'].tolist()
+
+    # Set scores of visited items to a very low value
+    predicted_scores[visited_item_indices] = -np.inf
+
+    # Get top N recommended item indices
+    top_indices = predicted_scores.argsort()[-top_n*2:][::-1] # Get more to filter from
+
+    # Map indices back to city names and find them in CITIES_DATA
+    recommendations = []
+    for item_idx in top_indices:
+        if len(recommendations) >= top_n:
+            break
+        city_name = item_inv_mapper.get(item_idx)
+        if city_name:
+            # Find this city in our main city dataset to get its details
+            city_details = CITIES_DATA[CITIES_DATA['name'] == city_name]
+            if not city_details.empty:
+                recommendations.append(city_details.iloc[0].to_dict())
+
+    return recommendations
+
+
+# --- Main Execution ---
+
+if CITIES_DATA is not None:
+    print("City data loaded successfully.")
+    print(f"Loaded {len(CITIES_DATA)} cities.")
+    _precompute_city_embeddings()
+else:
+    print("Failed to load city data.")

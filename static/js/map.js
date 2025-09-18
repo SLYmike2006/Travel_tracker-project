@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('total-trips').textContent = stats.total_trips;
                 document.getElementById('unique-countries').textContent = stats.unique_countries;
                 document.getElementById('unique-continents').textContent = stats.unique_continents;
-            })
+            })  
             .catch(error => console.error('Error fetching stats:', error));
     };
     const southWest = L.latLng(-85, -180);
