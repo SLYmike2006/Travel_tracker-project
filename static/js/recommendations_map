@@ -62,6 +62,7 @@ CITIES_DATA = load_cities_data()
 CITY_EMBEDDINGS = None
 MODEL = None
 
+
 def _precompute_city_embeddings():
     """
     Generates and stores embeddings for all cities in the dataset.
@@ -84,6 +85,7 @@ def _precompute_city_embeddings():
             print("SentenceTransformers library not found. Content-based recommendations will be disabled.")
         except Exception as e:
             print(f"An error occurred during embedding generation: {e}")
+
 
 def get_content_based_recommendations(user_places, top_n=10):
     """
