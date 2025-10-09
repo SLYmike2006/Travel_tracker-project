@@ -7,9 +7,16 @@
         </div>
         <div id="map-container">
             <div id="mapid"></div>
-            <button id="zoom-out-btn" title="Zoom out to world view">
-                <i class="fas fa-expand-arrows-alt"></i>
-            </button>
+        
+            <div class="map-buttons">
+                <a href="{{ url_for('index') }}" class="btn-back-home" title="Go back to Home">
+                    <i class="fas fa-home"></i> Home
+                </a>
+        
+                <button id="zoom-out-btn" title="Zoom out to world view">
+                    <i class="fas fa-expand-arrows-alt"></i>
+                </button>
+            </div>
         </div>
         <div class="sidebar">
             <div class="recommendations-list-container">
