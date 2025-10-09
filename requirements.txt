@@ -4,3 +4,8 @@ Flask-Login
 Flask-Bcrypt
 reverse_geocoder
 pycountry-convert
+pandas
+requests
+scikit-learn
+sentence-transformers
+torch

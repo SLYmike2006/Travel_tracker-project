@@ -65,25 +65,46 @@ MODEL = None
 def _precompute_city_embeddings():
     """
     Generates and stores embeddings for all cities in the dataset.
-    This is a one-time operation that runs when the module is loaded.
+    Uses caching to avoid recomputation if embeddings already exist.
     """
+    import os
+    import numpy as np
     global CITIES_DATA, CITY_EMBEDDINGS, MODEL
+
     if CITIES_DATA is not None:
         try:
             from sentence_transformers import SentenceTransformer
             MODEL = SentenceTransformer('all-MiniLM-L6-v2')
-            
-            # Create a description string for each city to be embedded
+
+            # Path to cache
+            EMBEDDINGS_PATH = "city_embeddings.npy"
+
+            if os.path.exists(EMBEDDINGS_PATH):
+                print("✅ Found cached embeddings. Loading from file...")
+                CITY_EMBEDDINGS = np.load(EMBEDDINGS_PATH)
+                print(f"Loaded cached embeddings: {CITY_EMBEDDINGS.shape}")
+                return
+
+            # Create description string for each city
             descriptions = (CITIES_DATA['name'] + ", " + CITIES_DATA['country_code']).tolist()
-            
-            print("Generating city embeddings... This may take a moment.")
-            CITY_EMBEDDINGS = MODEL.encode(descriptions, convert_to_tensor=True, show_progress_bar=True)
-            print("City embeddings generated successfully.")
-            
+
+            print("⚙️  Generating city embeddings... This may take a few minutes.")
+            CITY_EMBEDDINGS = MODEL.encode(
+                descriptions,
+                convert_to_tensor=True,
+                show_progress_bar=True,
+                batch_size=64
+            )
+
+            # Save embeddings to disk (convert tensor → numpy)
+            np.save(EMBEDDINGS_PATH, CITY_EMBEDDINGS.cpu().numpy())
+            print("💾 Embeddings generated and saved successfully.")
+
         except ImportError:
-            print("SentenceTransformers library not found. Content-based recommendations will be disabled.")
+            print("⚠️ SentenceTransformers library not found. Content-based recommendations will be disabled.")
         except Exception as e:
-            print(f"An error occurred during embedding generation: {e}")
+            print(f"❌ An error occurred during embedding generation: {e}")
+
 
 def get_content_based_recommendations(user_places, top_n=10):
     """
