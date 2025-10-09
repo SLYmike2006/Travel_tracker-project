@@ -19,3 +19,4 @@ venv/
 env/
 ities500.txt
 cities500.zip
+city_embeddings.npy
